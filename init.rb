@@ -23,10 +23,12 @@ class Heroku::Command::Docker < Heroku::Command::Base
     releases = get_v3("/apps/#{app}/releases")
     latest   = releases.sort_by { |r| r["version"] }.last
     slug     = get_v3("/apps/#{app}/slugs/#{latest["slug"]["id"]}")
+    config   = api.get_config_vars(app).body
 
     env = env_minus_config(app)
 
     Dir.mktmpdir do |dir|
+      write_databaseyml dir, config["DATABASE_URL"]
       write_dockerfile dir, base, slug["blob"]["url"], env
       build_image dir, tag
     end
@@ -58,6 +60,21 @@ private
     json_decode(heroku.get(uri, "Accept" => "application/vnd.heroku+json; version=3"))
   end
 
+  def write_databaseyml(dir, database_url)
+    uri = URI.parse(database_url)
+    IO.write("#{dir}/database.yml", <<-DATABASEYML)
+      ---
+      production:
+        encoding: unicode
+        port: #{uri.port}
+        username: #{uri.user}
+        adapter: postgresql
+        database: #{uri.path[1..-1]}
+        host: #{uri.host}
+        password: #{uri.password}
+    DATABASEYML
+  end
+
   def write_dockerfile(dir, base, url, env)
     envs = env.keys.sort.map { |key| "ENV #{key} #{env[key]}" }.join("\n")
     IO.write("#{dir}/Dockerfile", <<-DOCKERFILE)
@@ -65,10 +82,11 @@ private
       RUN curl '#{url}' -o /slug.img
       RUN rm -rf /app
       RUN unsquashfs -d /app /slug.img
-      RUN ls -la /app
-      MKDIR /home/heroku_rack
+      RUN rm /app/log /app/tmp
+      RUN mkdir /app/log /app/tmp
       WORKDIR /home/heroku_rack
       RUN curl -L http://cl.ly/2k1p1K0i032f/heroku_rack.tgz | tar xz
+      ADD database.yml /app/config/database.yml
       #{envs}
       WORKDIR /app
       EXPOSE 5000
