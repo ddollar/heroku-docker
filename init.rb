@@ -84,8 +84,6 @@ private
       RUN unsquashfs -d /app /slug.img
       RUN rm /app/log /app/tmp
       RUN mkdir /app/log /app/tmp
-      WORKDIR /home/heroku_rack
-      RUN curl -L http://cl.ly/2k1p1K0i032f/heroku_rack.tgz | tar xz
       ADD database.yml /app/config/database.yml
       #{envs}
       WORKDIR /app
