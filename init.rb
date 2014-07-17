@@ -34,6 +34,24 @@ class Heroku::Command::Docker < Heroku::Command::Base
     puts "Built image #{tag}"
   end
 
+  # docker:run
+  #
+  # run a docker image using config from app
+  #
+  # requires local docker binary
+  #
+  # -i, --image  # specify an image
+  #
+  def run
+    image = options[:image] || app
+    config = api.get_config_vars(app).body
+
+    Dir.mktmpdir do |dir|
+      write_envfile dir, config
+      system %{ docker run -d -P --env-file="#{dir}/.env" #{image} }
+    end
+  end
+
 private
 
   def get_v3(uri)
@@ -54,8 +72,16 @@ private
       #{envs}
       WORKDIR /app
       EXPOSE 5000
-      CMD thin -p 5000 -e ${RACK_ENV:-production} -R $HEROKU_RACK start
+      CMD thin -p 5000 -e ${RACK_ENV:-production} start
     DOCKERFILE
+  end
+
+  def write_envfile(dir, config)
+    File.open("#{dir}/.env", "w") do |f|
+      config.keys.sort.each do |key|
+        f.puts "#{key}=#{config[key]}"
+      end
+    end
   end
 
   def build_image(dir, tag)
