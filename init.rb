@@ -1,6 +1,6 @@
 class Heroku::Command::Docker < Heroku::Command::Base
  
-  # docker:build IMAGE
+  # docker:build
   #
   # create docker image from heroku app
   #
