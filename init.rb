@@ -50,7 +50,7 @@ class Heroku::Command::Docker < Heroku::Command::Base
 
     Dir.mktmpdir do |dir|
       write_envfile dir, config
-      system %{ docker run -d -P --env-file="#{dir}/.env" #{image} }
+      system %{ docker run -it -P --env-file="#{dir}/.env" #{image} }
     end
   end
 
@@ -118,6 +118,7 @@ private
     for name, value in api.get_config_vars(app).body do
       env.delete name
     end
+    env["PS"] = "docker.1"
     env
   end
 
