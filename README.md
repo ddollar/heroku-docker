@@ -41,6 +41,7 @@ Currently only works on Bamboo apps.
 
 #### Find your app's web port in Docker
 
+    $ docker ps
     CONTAINER ID        IMAGE               COMMAND                CREATED             STATUS              PORTS                     NAMES
     131c1ea36d2f        myapp:latest        /bin/sh -c 'thin -p    1 seconds ago       Up 2 seconds        0.0.0.0:49164->5000/tcp   suspicious_lovelace
 
