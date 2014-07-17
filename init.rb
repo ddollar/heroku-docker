@@ -28,7 +28,7 @@ class Heroku::Command::Docker < Heroku::Command::Base
     env = env_minus_config(app)
 
     Dir.mktmpdir do |dir|
-      write_databaseyml dir, config["DATABASE_URL"]
+      write_database_yml dir, config["DATABASE_URL"]
       write_dockerfile dir, base, slug["blob"]["url"], env
       build_image dir, tag
     end
@@ -60,7 +60,7 @@ private
     json_decode(heroku.get(uri, "Accept" => "application/vnd.heroku+json; version=3"))
   end
 
-  def write_databaseyml(dir, database_url)
+  def write_database_yml(dir, database_url)
     uri = URI.parse(database_url)
     IO.write("#{dir}/database.yml", <<-DATABASEYML)
       ---
