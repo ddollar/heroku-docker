@@ -12,9 +12,9 @@ class Heroku::Command::Docker < Heroku::Command::Base
   def build
     stack = api.get_app(app).body["stack"]
 
-    base = options[:base] || case stack
-      when "bamboo-ree-1.8.7" then "ddollar/heroku-bamboo"
-      when "bamboo-mri-1.9.2" then "ddollar/heroku-bamboo"
+    base = options[:base] || case stack.split("-").first
+      when "bamboo" then "ddollar/heroku-bamboo"
+      when "cedar"  then "ddollar/heroku-cedar"
       else error("Unsupported stack: #{stack}")
     end
 
@@ -23,26 +23,26 @@ class Heroku::Command::Docker < Heroku::Command::Base
     releases = get_v3("/apps/#{app}/releases")
     latest   = releases.sort_by { |r| r["version"] }.last
     slug     = get_v3("/apps/#{app}/slugs/#{latest["slug"]["id"]}")
-    config   = api.get_config_vars(app).body
 
     env = env_minus_config(app)
 
     Dir.mktmpdir do |dir|
-      write_database_yml dir, config["DATABASE_URL"]
-      write_dockerfile dir, base, slug["blob"]["url"], env
+      write_database_yml dir
+      write_dockerfile dir, base, slug["blob"]["url"], env, web_command(app)
       build_image dir, tag
     end
 
     puts "Built image #{tag}"
   end
 
-  # docker:run
+  # docker:run [COMMAND]
   #
   # run a docker image using config from app
   #
   # requires local docker binary
   #
-  # -i, --image  # specify an image
+  # -d, --detach  # run the docker container in the background
+  # -i, --image   # specify an image
   #
   def run
     image = options[:image] || app
@@ -50,7 +50,9 @@ class Heroku::Command::Docker < Heroku::Command::Base
 
     Dir.mktmpdir do |dir|
       write_envfile dir, config
-      system %{ docker run -it -P --env-file="#{dir}/.env" #{image} }
+      docker_args = [ "-P", %{--env-file="#{dir}/.env"}, "-u daemon" ]
+      docker_args.push (options[:detach] ? "-d" : "-it")
+      system %{ docker run #{docker_args.join(" ")} #{image} #{args.join(" ")} }
     end
   end
 
@@ -60,35 +62,74 @@ private
     json_decode(heroku.get(uri, "Accept" => "application/vnd.heroku+json; version=3"))
   end
 
-  def write_database_yml(dir, database_url)
-    uri = URI.parse(database_url)
+  def write_database_yml(dir)
     IO.write("#{dir}/database.yml", <<-DATABASEYML)
-      ---
-      production:
-        encoding: unicode
-        port: #{uri.port}
-        username: #{uri.user}
-        adapter: postgresql
-        database: #{uri.path[1..-1]}
-        host: #{uri.host}
-        password: #{uri.password}
+      <%
+      require 'cgi'
+      require 'uri'
+      begin
+        uri = URI.parse(ENV["DATABASE_URL"])
+      rescue URI::InvalidURIError
+        raise "Invalid DATABASE_URL"
+      end
+      raise "No RACK_ENV or RAILS_ENV found" unless ENV["RAILS_ENV"] || ENV["RACK_ENV"]
+      def attribute(name, value, force_string = false)
+        if value
+          value_string =
+            if force_string
+              '"' + value + '"'
+            else
+              value
+            end
+          "\#{name}: \#{value_string}"
+        else
+          ""
+        end
+      end
+      adapter = uri.scheme
+      adapter = "postgresql" if adapter == "postgres"
+      database = (uri.path || "").split("/")[1]
+      username = uri.user
+      password = uri.password
+      host = uri.host
+      port = uri.port
+      params = CGI.parse(uri.query || "")
+      %>
+      <%= ENV["RAILS_ENV"] || ENV["RACK_ENV"] %>:
+        <%= attribute "adapter",  adapter %>
+        <%= attribute "database", database %>
+        <%= attribute "username", username %>
+        <%= attribute "password", password, true %>
+        <%= attribute "host",     host %>
+        <%= attribute "port",     port %>
+      <% params.each do |key, value| %>
+        <%= key %>: <%= value.first %>
+      <% end %>
     DATABASEYML
   end
 
-  def write_dockerfile(dir, base, url, env)
+  def web_command(app)
+    formation = get_v3("/apps/#{app}/formation")
+    web = formation.detect { |f| f["type"] == "web" }
+    return "bash" unless web
+    web["command"]
+  end
+
+  def write_dockerfile(dir, base, url, env, cmd)
     envs = env.keys.sort.map { |key| "ENV #{key} #{env[key]}" }.join("\n")
     IO.write("#{dir}/Dockerfile", <<-DOCKERFILE)
       FROM #{base}
       RUN curl '#{url}' -o /slug.img
       RUN rm -rf /app
-      RUN unsquashfs -d /app /slug.img
-      RUN rm /app/log /app/tmp
+      RUN mkdir /app
+      RUN unsquashfs -d /app /slug.img || (cd / && tar -xzf /slug.img && chown -R daemon:daemon /app && chmod -R go+r /app && find /app -type d | xargs chmod go+x )
+      RUN rm -f /app/log /app/tmp
       RUN mkdir /app/log /app/tmp
       ADD database.yml /app/config/database.yml
       #{envs}
       WORKDIR /app
       EXPOSE 5000
-      CMD thin -p 5000 -e ${RACK_ENV:-production} start
+      CMD #{cmd}
     DOCKERFILE
   end
 
@@ -117,6 +158,8 @@ private
       env.delete name
     end
     env["PS"] = "docker.1"
+    env["HEROKU_RACK"] = "/app/config.ru" if env["HEROKU_RACK"]
+    env["PORT"] = "5000"
     env
   end
 

@@ -11,10 +11,6 @@ Turn Heroku apps into Docker images
 You'll need a working `docker` CLI and a valid `DOCKER_HOST`.
 You should be able to `docker ps` successfully.
 
-## Limitations
-
-Currently only works on Bamboo apps.
-
 ## Usage
 
 #### Build a Docker image from your Heroku app:
