@@ -119,12 +119,9 @@ private
     envs = env.keys.sort.map { |key| "ENV #{key} #{env[key]}" }.join("\n")
     IO.write("#{dir}/Dockerfile", <<-DOCKERFILE)
       FROM #{base}
-      RUN curl '#{url}' -o /slug.img
       RUN rm -rf /app
-      RUN mkdir /app
-      RUN unsquashfs -d /app /slug.img || (cd / && tar -xzf /slug.img && chown -R daemon:daemon /app && chmod -R go+r /app && find /app -type d | xargs chmod go+x )
-      RUN rm -f /app/log /app/tmp
-      RUN mkdir /app/log /app/tmp
+      RUN curl '#{url}' -o /slug.img
+      RUN (unsquashfs -d /app /slug.img || (cd / && mkdir /app && tar -xzf /slug.img)) && rm -f /app/log /app/tmp && mkdir /app/log /app/tmp &&  chown -R daemon:daemon /app && chmod -R go+r /app && find /app -type d | xargs chmod go+x
       ADD database.yml /app/config/database.yml
       #{envs}
       WORKDIR /app
@@ -160,6 +157,7 @@ private
     env["PS"] = "docker.1"
     env["HEROKU_RACK"] = "/app/config.ru" if env["HEROKU_RACK"]
     env["PORT"] = "5000"
+    env.delete "_"
     env
   end
 
