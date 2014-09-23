@@ -117,7 +117,7 @@ private
 
   def write_dockerfile(dir, base, url, env, cmd)
     envs = env.keys.sort.map { |key| "ENV #{key} #{env[key]}" }.join("\n")
-    IO.write("#{dir}/Dockerfile", <<-DOCKERFILE)
+    IO.write("#{dir}/Dockerfile", <<-DOCKERFILE.split("\n").map { |l| l.strip }.join("\n"))
       FROM #{base}
       RUN rm -rf /app
       RUN curl '#{url}' -o /slug.img
