@@ -158,6 +158,7 @@ private
     env["HEROKU_RACK"] = "/app/config.ru" if env["HEROKU_RACK"]
     env["PORT"] = "5000"
     env.delete "_"
+    env.delete "DYNO"
     env
   end
 
