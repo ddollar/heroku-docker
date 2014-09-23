@@ -35,6 +35,47 @@ class Heroku::Command::Docker < Heroku::Command::Base
     puts "Built image #{tag}"
   end
 
+  # docker:context TARFILE
+  #
+  # create docker context from heroku app
+  #
+  # requires local docker binary
+  #
+  # -b, --base  # override default base image
+  #
+  def context
+    unless tarfile = shift_argument
+      error("Usage: heroku docker:context TARFILE")
+    end
+
+    stack = api.get_app(app).body["stack"]
+
+    base = options[:base] || case stack.split("-").first
+      when "bamboo" then "ddollar/heroku-bamboo"
+      when "cedar"  then "ddollar/heroku-cedar"
+      else error("Unsupported stack: #{stack}")
+    end
+
+    tag = options[:tag] || app
+
+    releases = get_v3("/apps/#{app}/releases")
+    latest   = releases.sort_by { |r| r["version"] }.last
+    slug     = get_v3("/apps/#{app}/slugs/#{latest["slug"]["id"]}")
+
+    env = env_minus_config(app)
+
+    Dir.mktmpdir do |dir|
+      write_database_yml dir
+      write_dockerfile dir, base, slug["blob"]["url"], env, web_command(app)
+
+      Dir.chdir(dir) do
+        system %{ tar cf #{tarfile} . }
+      end
+    end
+
+    puts "Wrote context to #{tarfile}"
+  end
+
   # docker:run [COMMAND]
   #
   # run a docker image using config from app
