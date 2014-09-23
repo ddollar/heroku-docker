@@ -152,7 +152,7 @@ private
       ax.update name => value
     end
     for name, value in api.get_config_vars(app).body do
-      env.delete name
+      env.delete name unless name == "PATH"
     end
     env["PS"] = "docker.1"
     env["HEROKU_RACK"] = "/app/config.ru" if env["HEROKU_RACK"]
