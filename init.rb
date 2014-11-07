@@ -1,3 +1,5 @@
+require "tmpdir"
+
 class Heroku::Command::Docker < Heroku::Command::Base
  
   # docker:build
