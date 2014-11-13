@@ -29,7 +29,7 @@ class Heroku::Command::Docker < Heroku::Command::Base
     env = env_minus_config(app)
 
     Dir.mktmpdir do |dir|
-      write_database_yml dir
+      write_database_yml dir if stack =~ /^bamboo-/
       write_dockerfile dir, base, slug["blob"]["url"], env, web_command(app)
       build_image dir, tag
     end
