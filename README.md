@@ -13,7 +13,7 @@ You should be able to `docker ps` successfully.
 
 ## Usage
 
-#### Build a Docker image from your Heroku app:
+#### Build a Docker image from your Heroku app
 
     $ heroku docker:build -a myapp
     Sending build context to Docker daemon 3.584 kB
@@ -28,12 +28,12 @@ You should be able to `docker ps` successfully.
     Successfully built e22b7e884e9a
     Built image myapp
 
-#### Get an env-file suitable for `docker run`:
+#### Get an env-file suitable for `docker run`
 
     $ heroku docker:env -a myapp
     FOO=bar
 
-#### Build a Docker image from a Heroku app and then run it using the app's config vars:
+#### Build a Docker image from a Heroku app and then run it using the app's config vars
 
     $ heroku docker:run -a myapp
     >> Thin web server (v1.2.7 codename No Hup)
