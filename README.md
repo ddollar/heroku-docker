@@ -28,7 +28,12 @@ You should be able to `docker ps` successfully.
     Successfully built e22b7e884e9a
     Built image myapp
 
-#### Run a Docker image using config vars from your Heroku app:
+#### Get an env-file suitable for `docker run`:
+
+    $ heroku docker:env -a myapp
+    FOO=bar
+
+#### Build a Docker image from a Heroku app and then run it using the app's config vars:
 
     $ heroku docker:run -a myapp
     >> Thin web server (v1.2.7 codename No Hup)

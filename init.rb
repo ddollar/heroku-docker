@@ -53,9 +53,10 @@ class Heroku::Command::Docker < Heroku::Command::Base
 
     stack = api.get_app(app).body["stack"]
 
-    base = options[:base] || case stack.split("-").first
-      when "bamboo" then "ddollar/heroku-bamboo"
-      when "cedar"  then "ddollar/heroku-cedar"
+    base = case stack
+      when /^bamboo-/ then "ddollar/heroku-bamboo"
+      when "cedar"    then "ddollar/heroku-cedar"
+      when "cedar-14" then "heroku/cedar:14"
       else error("Unsupported stack: #{stack}")
     end
 
