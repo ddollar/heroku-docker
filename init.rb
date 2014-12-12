@@ -79,6 +79,19 @@ class Heroku::Command::Docker < Heroku::Command::Base
     puts "Wrote context to #{tarfile}"
   end
 
+  # docker:env
+  #
+  # export an app's config as an env-file ready for `docker run`
+  #
+  def env
+    image = options[:image] || app
+    config = api.get_config_vars(app).body
+
+    config.keys.sort.each do |key|
+      puts "#{key}=#{config[key]}"
+    end
+  end
+
   # docker:run [COMMAND]
   #
   # run a docker image using config from app
